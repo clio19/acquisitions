@@ -1,0 +1,32 @@
+services:
+  neon-local:
+    image: neondatabase/neon_local:latest
+    container_name: neon-local
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env.neon-local
+    # Optional: persist branch metadata and (optionally) support "one branch per git branch".
+    # If you hit Windows file sharing issues with the .git mount, remove the HEAD mount.
+    volumes:
+      - ./.neon_local:/tmp/.neon_local
+      - ./.git/HEAD:/tmp/.git/HEAD:ro
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - neon-local
+    env_file:
+      - .env.development
+    # Bind-mount source for fast iteration.
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+
+volumes:
+  app_node_modules:

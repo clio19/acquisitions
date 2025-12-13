@@ -1,6 +1,12 @@
 node_modules
+# Env files (keep secrets out of git)
 .env
+.env.*
+# If you add a non-secret template file, you can unignore it like: !.env.example
+
+# Neon Local metadata
 .neon_local/
+
 public/readme/module-icon.webp
 public/readme/module-thumbnail.webp
 logs/combined.log

@@ -8,7 +8,13 @@ const isLocalDb =
   /(localhost|127\.0\.0\.1|neon-local)/.test(process.env.DATABASE_URL);
 
 if (process.env.NODE_ENV === 'development' && isLocalDb) {
-  neonConfig.fetchEndpoint = 'http://neon-local:5432/sql';
+  // When running inside Docker Compose, use the Neon Local service name.
+  // When running on the host, connect to the forwarded port on localhost.
+  const isComposeHostname = /neon-local/.test(process.env.DATABASE_URL);
+
+  neonConfig.fetchEndpoint = isComposeHostname
+    ? 'http://neon-local:5432/sql'
+    : 'http://localhost:5432/sql';
   neonConfig.useSecureWebSocket = false;
   neonConfig.poolQueryViaFetch = true;
 }

@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    # No Neon Local proxy in production.
+    # DATABASE_URL must point to your Neon Cloud database (neon.tech).
