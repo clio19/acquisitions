@@ -204,14 +204,14 @@ jobs:
           git remote set-url origin https://x-access-token:$GH_PAT@github.com/${{ github.repository }}.git
           git push origin main
 
-      - name: Refresh and sync ArgoCD application
-        run: |
-          if [ -n "${{ secrets.ARGOCD_AUTH_TOKEN }}" ]; then
-            argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" || true
-            argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
-            argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600 --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
-          else
-            argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web || true
-            argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web
-            argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600
-          fi
+      # - name: Refresh and sync ArgoCD application  Commented out to avoid potential infinite loops
+      #   run: |
+      #     if [ -n "${{ secrets.ARGOCD_AUTH_TOKEN }}" ]; then
+      #       argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" || true
+      #       argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+      #       argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600 --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+      #     else
+      #       argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web || true
+      #       argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web
+      #       argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600
+      #     fi

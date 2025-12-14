@@ -1,9 +1,0 @@
-name: GitOps Pipeline with ArgoCD (legacy)
-
-# This workflow was superseded by `.github/workflows/docker-build-and-push.yml`.
-# Kept for reference; runs only when manually triggered.
-on:
-  workflow_dispatch:
-
-env:
-  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
