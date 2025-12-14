@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: kubernetes-demo-api
-          image: htrix/kubernetes-demo-api:9a3941e86a864a390cefc6b5d10523bacd85673e
+          image: htrix/kubernetes-demo-api:833fb6beaf1efe05531ad9ec0649f00504791857
           ports:
             - containerPort: 3000
           env:
