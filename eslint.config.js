@@ -21,7 +21,7 @@ export default [
     },
     rules: {
       indent: ['error', 2, { SwitchCase: 1 }],
-      'linebreak-style': ['error', 'unix', 'windows'],
+      'linebreak-style': ['error', 'unix'],
       quotes: ['error', 'single'],
       semi: ['error', 'always'],
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -48,6 +48,6 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/**', 'coverage/**', 'logs/**', 'drizzle/**'],
+    ignores: ['node_modules/**', 'coverage/**', 'warp/**', 'logs/**', 'drizzle/**'],
   },
 ];
