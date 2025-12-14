@@ -1,36 +1,42 @@
-# syntax=docker/dockerfile:1
+# Multi-stage Dockerfile for Node.js acquisitions application
 
-FROM node:20-slim AS base
+# Base image with Node.js
+FROM node:18-alpine AS base
+
+# Set working directory
 WORKDIR /app
 
-# Install deps (with dev deps for the development image)
-FROM base AS deps
-COPY package.json package-lock.json ./
-RUN npm ci
+# Copy package files
+COPY package*.json ./
 
-# Development image (bind-mount friendly)
-FROM deps AS development
-ENV NODE_ENV=development
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
 COPY . .
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose the port
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => { process.exit(1) })"
+
+# Development stage
+FROM base AS development
+USER root
+RUN npm ci && npm cache clean --force
+USER nodejs
 CMD ["npm", "run", "dev"]
 
-# Production deps (omit dev dependencies)
-FROM base AS prod-deps
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Production runtime image
+# Production stage
 FROM base AS production
-ENV NODE_ENV=production
-
-# Copy only what we need at runtime
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY package.json ./package.json
-COPY src ./src
-
-# Run as non-root
-USER node
-EXPOSE 3000
 CMD ["npm", "start"]
