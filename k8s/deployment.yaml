@@ -21,18 +21,18 @@ spec:
             - containerPort: 3000
           env:
             - name: NODE_ENV
-              value: "production"
+              value: 'production'
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: '100m'
+              memory: '128Mi'
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: '500m'
+              memory: '512Mi'
           readinessProbe:
             httpGet:
               path: /readyz

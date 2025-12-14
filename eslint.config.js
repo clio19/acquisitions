@@ -48,6 +48,12 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/**', 'coverage/**', 'warp/**', 'logs/**', 'drizzle/**'],
+    ignores: [
+      'node_modules/**',
+      'coverage/**',
+      'warp/**',
+      'logs/**',
+      'drizzle/**',
+    ],
   },
 ];
