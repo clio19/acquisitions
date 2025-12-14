@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'manifest/**' # ignore changes to manifest files to prevent loop
+      - 'k8s/**' # ignore GitOps manifest updates to prevent loop
   workflow_dispatch:
     inputs:
       tag_suffix:
@@ -17,6 +17,7 @@ env:
   REGISTRY: docker.io
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/kubernetes-demo-api
   PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+  ARGOCD_APP_NAME: ${{ secrets.ARGOCD_APP_NAME != '' && secrets.ARGOCD_APP_NAME || 'kubernetes-demo-api' }}
 
 jobs:
   build-and-push:
@@ -50,12 +51,14 @@ jobs:
             type=ref,event=branch
             # SHA-based tags
             type=sha,prefix={{branch}}-,format=short
+            # Immutable tag for GitOps (full SHA)
+            type=sha,format=long,prefix=
             # Latest tag for main branch
             type=raw,value=latest,enable={{is_default_branch}}
             # Production timestamp tag
             type=raw,value=prod-{{date 'YYYYMMDD-HHmmss'}},enable={{is_default_branch}}
-            # Custom suffix if provided
-            type=raw,value={{branch}}${{ inputs.tag_suffix && format('-{0}', inputs.tag_suffix) || '' }},enable=${{ inputs.tag_suffix != '' }}
+            # Custom suffix if provided (workflow_dispatch only)
+            type=raw,value={{branch}}-${{ github.event.inputs.tag_suffix }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_suffix != '' }}
           labels: |
             org.opencontainers.image.title=Acquisitions API
             org.opencontainers.image.description=Node.js Express API for acquisitions system
@@ -108,3 +111,70 @@ jobs:
         run: |
           echo "::error::Docker build failed - please check the build logs above for details"
           echo "::notice::Ensure your Dockerfile is properly configured and secrets are set correctly"
+
+  gitops-deploy:
+    name: Update GitOps Manifests and Sync ArgoCD
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code (with PAT)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install kubectl
+        run: |
+          curl -L -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/argocd
+
+      - name: Login to ArgoCD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+
+      - name: Update k8s deployment image to current SHA
+        id: update_manifest
+        run: |
+          git checkout main
+          git pull origin main
+
+          echo "Updating k8s/deployment.yaml image tag to ${{ github.sha }}"
+          sed -i "s#^\([[:space:]]*image:[[:space:]]*\).*kubernetes-demo-api:.*#\1${{ secrets.DOCKER_USERNAME }}/kubernetes-demo-api:${{ github.sha }}#" k8s/deployment.yaml
+
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push manifest change
+        if: steps.update_manifest.outputs.changed == 'true'
+        env:
+          GH_PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        run: |
+          git config user.name "${{ secrets.GIT_USERNAME }}"
+          git config user.email "${{ secrets.GIT_EMAIL }}"
+
+          git add k8s/deployment.yaml
+          git commit -m "chore(gitops): deploy ${{ github.sha }}"
+
+          git remote set-url origin https://x-access-token:$GH_PAT@github.com/${{ github.repository }}.git
+          git push origin main
+
+      - name: Refresh and sync ArgoCD application
+        run: |
+          argocd app get "${{ env.ARGOCD_APP_NAME }}" || true
+          argocd app sync "${{ env.ARGOCD_APP_NAME }}"
+          argocd app wait "${{ env.ARGOCD_APP_NAME }}" --health --timeout 600
