@@ -139,7 +139,20 @@ jobs:
 
       - name: Login to ArgoCD
         run: |
-          argocd login ${{ secrets.ARGOCD_SERVER }} \
+          # Normalize ARGOCD server secret: remove stray tcp:// or extra slashes
+          RAW_SERVER="${{ secrets.ARGOCD_SERVER }}"
+          # Remove leading tcp:, tcp://, tcp:/// and any leading slashes
+          NORMALIZED=$(echo "$RAW_SERVER" | sed -E 's#^tcp:/*##; s#^/*##')
+
+          # If the secret included an https?:// prefix, preserve it; otherwise use the normalized host
+          if echo "$NORMALIZED" | grep -Eq '^https?://'; then
+            SERVER="$NORMALIZED"
+          else
+            SERVER="$NORMALIZED"
+          fi
+
+          echo "Logging in to ArgoCD server: $SERVER"
+          argocd login "$SERVER" \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
             --insecure
