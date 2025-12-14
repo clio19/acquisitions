@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'manifest/**' # ignore changes to manifest files to prevent loop
   workflow_dispatch:
     inputs:
       tag_suffix:
@@ -14,6 +16,7 @@ on:
 env:
   REGISTRY: docker.io
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/kubernetes-demo-api
+  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
 jobs:
   build-and-push:
