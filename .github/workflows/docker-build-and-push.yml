@@ -160,11 +160,20 @@ jobs:
           fi
 
           echo "Logging in to ArgoCD server: $SERVER"
-          argocd login "$SERVER" \
-            --grpc-web \
-            --username ${{ secrets.ARGOCD_USERNAME }} \
-            --password ${{ secrets.ARGOCD_PASSWORD }} \
-            --insecure
+          # If a pre-created token is provided, prefer it (better for CI and RBAC)
+          if [ -n "${{ secrets.ARGOCD_AUTH_TOKEN }}" ]; then
+            echo "Using ARGOCD_AUTH_TOKEN for login"
+            argocd login "$SERVER" \
+              --grpc-web \
+              --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" \
+              --insecure
+          else
+            argocd login "$SERVER" \
+              --grpc-web \
+              --username ${{ secrets.ARGOCD_USERNAME }} \
+              --password ${{ secrets.ARGOCD_PASSWORD }} \
+              --insecure
+          fi
 
       - name: Update k8s deployment image to current SHA
         id: update_manifest
@@ -197,6 +206,12 @@ jobs:
 
       - name: Refresh and sync ArgoCD application
         run: |
-          argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web || true
-          argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web
-          argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600
+          if [ -n "${{ secrets.ARGOCD_AUTH_TOKEN }}" ]; then
+            argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" || true
+            argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+            argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600 --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+          else
+            argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web || true
+            argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web
+            argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600
+          fi
