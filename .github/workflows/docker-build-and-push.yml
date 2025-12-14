@@ -139,27 +139,29 @@ jobs:
 
       - name: Login to ArgoCD
         run: |
-          # More robust normalization of ARGOCD_SERVER secret:
-          #  - remove any leading scheme (tcp:, http:, https:, etc.) and slashes
-          #  - trim trailing slashes
-          #  - prefix with https:// if no scheme is present
+          # For ArgoCD behind Cloudflare/Ingress, the CLI typically needs grpc-web.
+          # Also, argocd CLI expects a host[:port] here (no scheme like https://).
+
+          # Avoid any runner proxy env vars interfering with argocd connectivity.
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy
 
           RAW_SERVER="${{ secrets.ARGOCD_SERVER }}"
-          NORMALIZED=$(echo "$RAW_SERVER" | sed -E 's#^[A-Za-z]+:/*##; s#/*$##')
+          # Normalize to host[:port] (strip any scheme and leading/trailing slashes)
+          SERVER=$(echo "$RAW_SERVER" | sed -E 's#^[A-Za-z]+://##; s#^/+##; s#/*$##')
 
-          if [ -z "$NORMALIZED" ]; then
+          if [ -z "$SERVER" ]; then
             echo "ERROR: ARGOCD_SERVER secret is empty after normalization" >&2
             exit 1
           fi
 
-          if echo "$NORMALIZED" | grep -Eq '^https?://'; then
-            SERVER="$NORMALIZED"
-          else
-            SERVER="https://$NORMALIZED"
+          if echo "$SERVER" | grep -q '/'; then
+            echo "ERROR: ARGOCD_SERVER must be only host[:port] (no path). Got: $SERVER" >&2
+            exit 1
           fi
 
           echo "Logging in to ArgoCD server: $SERVER"
           argocd login "$SERVER" \
+            --grpc-web \
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
             --insecure
@@ -195,6 +197,6 @@ jobs:
 
       - name: Refresh and sync ArgoCD application
         run: |
-          argocd app get "${{ env.ARGOCD_APP_NAME }}" || true
-          argocd app sync "${{ env.ARGOCD_APP_NAME }}"
-          argocd app wait "${{ env.ARGOCD_APP_NAME }}" --health --timeout 600
+          argocd app get "${{ env.ARGOCD_APP_NAME }}" --grpc-web || true
+          argocd app sync "${{ env.ARGOCD_APP_NAME }}" --grpc-web
+          argocd app wait "${{ env.ARGOCD_APP_NAME }}" --grpc-web --health --timeout 600
